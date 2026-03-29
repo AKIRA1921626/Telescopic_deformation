@@ -1,0 +1,2 @@
+# Telescopic_deformation
+伸縮変形のAviutl2スクリプト

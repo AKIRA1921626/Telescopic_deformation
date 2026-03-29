@@ -1,0 +1,74 @@
+--label:変形
+--track@top_bottom_pull:全体上下辺↑↓,-1000,1000,100
+--track@top_lift:全体上辺↑,-1000,1000,100
+--track@bottom_pull:全体下辺↓,-1000,1000,100
+--track@left_right_push:全体左右辺←→,-1000,1000,100
+--track@right_push:全体右辺→,-1000,1000,100
+--track@left_push:全体左辺←,-1000,1000,100
+--group:細かく調整,false
+--track@left_top_left:左上点←,-1000,1000,0
+--track@left_bottom_left:左下点←,-1000,1000,0
+--track@top_right_up:右上点↑,-1000,1000,0
+--track@top_left_up:左上点↑,-1000,1000,0
+--track@bottom_right_down:右下点↓,-1000,1000,0
+--track@bottom_left_down:左下点↓,-1000,1000,0
+--track@right_top_right:右上点→,-1000,1000,0
+--track@right_bottom_right:右下点→,-1000,1000,0
+
+obj.setanchor("left_right_push,top_bottom_pull",0,"arm","0xc81e1e")
+
+--[[
+-- 仮想バッファのためのマージン
+local margin = 50
+
+local tmpw = left_right_push + left_push + right_push + right_top_right + right_bottom_right
+local tmph = top_bottom_pull + top_lift + top_left_up + bottom_pull + bottom_left_down + bottom_right_down
+
+obj.setoption("drawtarget","tempbuffer",tmpw + margin,tmph + margin)
+]]-- 仮想バッファのサイズがうまく調整できなかった（作成者の技量の問題による）ため、ここはコメントアウトしておく。
+
+-- drawpolyで使用する用の変数内での計算で使用する用の変数
+local w = obj.w
+local h = obj.h
+
+-- drawpolyで使用する用の変数
+-- 左上
+local x0 = (left_right_push + left_push + left_top_left)/100*w/4
+local y0 = (top_bottom_pull + top_lift + top_left_up)/100*h/4
+-- 右上
+local x1 = (left_right_push + right_push + right_top_right)/100*w/4
+local y1 = (top_bottom_pull + top_lift + top_right_up)/100*h/4
+-- 右下
+local x2 = (left_right_push + right_push + right_bottom_right)/100*w/4
+local y2 = (top_bottom_pull + bottom_pull + bottom_right_down)/100*h/4
+-- 左下
+local x3 = (left_right_push + left_push + left_bottom_left)/100*w/4
+local y3 = (top_bottom_pull + bottom_pull + bottom_left_down)/100*h/4
+
+-- drawpolyのzの数値はすべて0なため、わかりやすいように変数を作成
+local z = 0
+
+-- drawpolyで数値の符号を反転させるための変数
+local m = -1
+
+obj.drawpoly(
+-- 左上
+x0*m,
+y0*m,
+z,
+-- 右上
+x1,
+y1*m,
+z,
+-- 右下
+x2,
+y2,
+z,
+-- 左下
+x3*m,
+y3,
+z
+)
+
+-- 仮想バッファをコメントアウトしたことに伴い、ここもコメントアウト
+--obj.load("tempbuffer")
