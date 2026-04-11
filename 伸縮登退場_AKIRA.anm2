@@ -1,0 +1,402 @@
+--label:切り替え効果
+--information:時間経過とともに伸縮が解除される効果を追加した伸縮変形スクリプトです。
+--track@entry_time:登退場秒数,0,5,0.3,0.01
+--track@in_time:登場秒数,0,5,0,0.01
+--track@out_time:退場秒数,0,5,0,0.01
+--track@entry_delay:間隔,0,5,0.1,0.01
+--group:全体変形,true
+--track@top_bottom_pull:全体上下辺↑↓,-1000,1000,100
+--track@top_lift:全体上辺↑,-1000,1000,100
+--track@bottom_pull:全体下辺↓,-1000,1000,100
+--track@left_right_push:全体左右辺←→,-1000,1000,100
+--track@right_push:全体右辺→,-1000,1000,100
+--track@left_push:全体左辺←,-1000,1000,100
+--group
+--group:細かく調整,false
+--track@left_top_left:左上点←,-1000,1000,0
+--track@left_bottom_left:左下点←,-1000,1000,0
+--track@top_right_up:右上点↑,-1000,1000,0
+--track@top_left_up:左上点↑,-1000,1000,0
+--track@bottom_right_down:右下点↓,-1000,1000,0
+--track@bottom_left_down:左下点↓,-1000,1000,0
+--track@right_top_right:右上点→,-1000,1000,0
+--track@right_bottom_right:右下点→,-1000,1000,0
+--group
+--select@entry_order:登場順=0,前から=0,後ろから=1,真ん中から=2,ランダム=3
+--select@entry_easing:イージングタイプ=3,Linear(等速)=0,inSine(正弦波:緩やかな加速)=1,inQuad(二次:標準的な加速)=2,inCubic(三次:強めの加速)=3,inQuart(四次:かなり強い加速)=4,inQuint(五次:非常に強い加速)=5,inCirc(円弧:最後に急加速)=6,inExpo(指数:急激な加速)=7,inBack(戻り:少し戻って加速)=8,inElastic(弾性:揺れてから加速)=9,inBounce(跳ね返り:跳ねて加速)=10,outSine(正弦波:緩やかに減速)=11,outQuad(二次:標準的な減速)=12,outCubic(三次:強めの減速)=13,outQuart(四次:かなり強い減速)=14,outQuint(五次:非常に強い減速)=15,outCirc(円弧:急激に減速)=16,outExpo(指数:瞬時に減速)=17,outBack(戻り:通り過ぎて戻る)=18,outElastic(弾性:揺れて減速)=19,outBounce(跳ね返り:着地して跳ねる)=20,inOutSine(正弦波:滑らかな加減速)=21,inOutQuad(二次:標準的な加減速)=22,inOutCubic(三次:強めの加減速)=23,inOutQuart(四次:かなり強い加減速)=24,inOutQuint(五次:非常に強い加減速)=25,inOutCirc(円弧:急激な加減速)=26,inOutExpo(指数:中央で急移動)=27,inOutBack(戻り:開始終了で戻る)=28,inOutElastic(弾性:開始終了で揺れる)=29,inOutBounce(跳ね返り:開始終了で跳ねる)=30
+--check@entry_in_fade:INフェード,0
+--check@entry_out_fade:OUTフェード,0
+--check@entry_in:登場,1
+--check@entry_out:退場,0
+
+-- トラックバーの値と連動するアンカーを設置（色は移動登場のイメージカラーである黄色にする）
+obj.setanchor("left_right_push,top_bottom_pull",0,"arm","color","0xce6e61e")
+
+------------------------------------ イージング処理の計算
+
+-- イージング計算用テーブル
+local Easing = {}
+
+-- Linear (線形: 等速)
+function Easing.linear(t) return t end
+
+-----------------------------------------------------------
+-- In (開始時に加速)
+-----------------------------------------------------------
+
+-- Sine In (正弦波: 緩やかな動き出し)
+function Easing.inSine(t) return 1 - math.cos(t * (math.pi / 2)) end
+
+-- Quad In (二次関数: 標準的な加速)
+function Easing.inQuad(t) return t * t end
+
+-- Cubic In (三次関数: Quadより強めの加速)
+function Easing.inCubic(t) return t * t * t end
+
+-- Quart In (四次関数: かなり強い加速)
+function Easing.inQuart(t) return t * t * t * t end
+
+-- Quint In (五次関数: 非常に強い加速)
+function Easing.inQuint(t) return t * t * t * t * t end
+
+-- Circ In (円弧: 最後に急加速)
+function Easing.inCirc(t) return 1 - math.sqrt(1 - t * t) end
+
+-- Expo In (指数関数: 急激な加速)
+function Easing.inExpo(t) return (t == 0) and 0 or 2^(10 * (t - 1)) end
+
+-- Back In (戻り動作: 少し戻ってから進む)
+function Easing.inBack(t)
+    local s = 1.70158
+    return t * t * ((s + 1) * t - s)
+end
+
+-- Elastic In (弾性: 紐のように揺れてから飛び出す)
+function Easing.inElastic(t)
+    if t == 0 or t == 1 then return t end
+    local p = 0.3
+    local s = p / 4
+    local f = t - 1
+    return -(2^(10 * f) * math.sin((f - s) * (2 * math.pi) / p))
+end
+
+-- Bounce In (跳ね返り: 跳ねながら開始する)
+function Easing.inBounce(t) return 1 - Easing.outBounce(1 - t) end
+
+-----------------------------------------------------------
+-- Out (終了時に減速)
+-----------------------------------------------------------
+
+-- Sine Out (正弦波: 緩やかに停止)
+function Easing.outSine(t) return math.sin(t * (math.pi / 2)) end
+
+-- Quad Out (二次関数: 標準的な減速)
+function Easing.outQuad(t) return t * (2 - t) end
+
+-- Cubic Out (三次関数: Quadより強めの減速)
+function Easing.outCubic(t) local f = t - 1 return f * f * f + 1 end
+
+-- Quart Out (四次関数: かなり強い減速)
+function Easing.outQuart(t) local f = t - 1 return 1 - (f * f * f * f) end
+
+-- Quint Out (五次関数: 非常に強い減速)
+function Easing.outQuint(t) local f = t - 1 return f * f * f * f * f + 1 end
+
+-- Circ Out (円弧: 急激に減速して停止)
+function Easing.outCirc(t) return math.sqrt(1 - (t - 1)^2) end
+
+-- Expo Out (指数関数: 瞬時に停止)
+function Easing.outExpo(t) return (t == 1) and 1 or 1 - 2^(-10 * t) end
+
+-- Back Out (戻り動作: 目標を少し通り過ぎて戻る)
+function Easing.outBack(t)
+    local s = 1.70158
+    local f = t - 1
+    return f * f * ((s + 1) * f + s) + 1
+end
+
+-- Elastic Out (弾性: 目標地点で揺れて止まる)
+function Easing.outElastic(t)
+    if t == 0 or t == 1 then return t end
+    local p = 0.3
+    local s = p / 4
+    return 2^(-10 * t) * math.sin((t - s) * (2 * math.pi) / p) + 1
+end
+
+-- Bounce Out (跳ね返り: 着地して跳ねる)
+function Easing.outBounce(t)
+    if t < (1 / 2.75) then return 7.5625 * t * t
+    elseif t < (2 / 2.75) then t = t - (1.5 / 2.75) return 7.5625 * t * t + 0.75
+    elseif t < (2.5 / 2.75) then t = t - (2.25 / 2.75) return 7.5625 * t * t + 0.9375
+    else t = t - (2.625 / 2.75) return 7.5625 * t * t + 0.984375 end
+end
+
+-----------------------------------------------------------
+-- InOut (開始時に加速、終了時に減速)
+-----------------------------------------------------------
+
+-- Sine InOut (正弦波: 全体的に滑らかな加減速)
+function Easing.inOutSine(t) return 0.5 * (1 - math.cos(math.pi * t)) end
+
+-- Quad InOut (二次関数: 標準的な加減速)
+function Easing.inOutQuad(t)
+    t = t * 2
+    if t < 1 then return 0.5 * t * t
+    else t = t - 1 return -0.5 * (t * (t - 2) - 1) end
+end
+
+-- Cubic InOut (三次関数: Quadより強めの加減速)
+function Easing.inOutCubic(t)
+    t = t * 2
+    if t < 1 then return 0.5 * t * t * t
+    else t = t - 2 return 0.5 * (t * t * t + 2) end
+end
+
+-- Quart InOut (四次関数: かなり強い加減速)
+function Easing.inOutQuart(t)
+    t = t * 2
+    if t < 1 then return 0.5 * t * t * t * t
+    else t = t - 2 return -0.5 * (t * t * t * t - 2) end
+end
+
+-- Quint InOut (五次関数: 非常に強い加減速)
+function Easing.inOutQuint(t)
+    t = t * 2
+    if t < 1 then return 0.5 * t * t * t * t * t
+    else t = t - 2 return 0.5 * (t * t * t * t * t + 2) end
+end
+
+-- Circ InOut (円弧: 加速・減速が急激)
+function Easing.inOutCirc(t)
+    t = t * 2
+    if t < 1 then return -0.5 * (math.sqrt(1 - t * t) - 1)
+    else t = t - 2 return 0.5 * (math.sqrt(1 - t * t) + 1) end
+end
+
+-- Expo InOut (指数関数: 中央付近で急激に移動)
+function Easing.inOutExpo(t)
+    if t == 0 or t == 1 then return t end
+    t = t * 2
+    if t < 1 then return 0.5 * 2^(10 * (t - 1))
+    else return 0.5 * (-(2^(-10 * (t - 1))) + 2) end
+end
+
+-- Back InOut (戻り動作: 開始・終了の両方で戻る)
+function Easing.inOutBack(t)
+    local s = 1.70158 * 1.525
+    t = t * 2
+    if t < 1 then return 0.5 * (t * t * ((s + 1) * t - s))
+    else t = t - 2 return 0.5 * (t * t * ((s + 1) * t + s) + 2) end
+end
+
+-- Elastic InOut (弾性: 開始・終了の両方で揺れる)
+function Easing.inOutElastic(t)
+    if t == 0 or t == 1 then return t end
+    local p = 0.3 * 1.5
+    local s = p / 4
+    t = t * 2 - 1
+    if t < 0 then return -0.5 * (2^(10 * t) * math.sin((t - s) * (2 * math.pi) / p))
+    else return 2^(-10 * t) * math.sin((t - s) * (2 * math.pi) / p) * 0.5 + 1 end
+end
+
+-- Bounce InOut (跳ね返り: 開始・終了の両方で跳ねる)
+function Easing.inOutBounce(t)
+    if t < 0.5 then return Easing.inBounce(t * 2) * 0.5
+    else return Easing.outBounce(t * 2 - 1) * 0.5 + 0.5 end
+end
+
+------------------------- イージング処理の計算終了
+
+-------------------------- イージング選択開始
+
+-- 数値と関数名の紐付けテーブル
+local mode_map = {
+    -- 0: 等速移動
+    [0]  = "linear",
+
+    -- In系列 (1-10): 開始時に加速
+    [1]  = "inSine",    -- 正弦波
+    [2]  = "inQuad",    -- 二次関数
+    [3]  = "inCubic",   -- 三次関数
+    [4]  = "inQuart",   -- 四次関数
+    [5]  = "inQuint",   -- 五次関数
+    [6]  = "inCirc",    -- 円弧
+    [7]  = "inExpo",    -- 指数関数
+    [8]  = "inBack",    -- 戻り動作
+    [9]  = "inElastic", -- 弾性
+    [10] = "inBounce",  -- 跳ね返り
+
+    -- Out系列 (11-20): 終了時に減速
+    [11] = "outSine",    -- 正弦波
+    [12] = "outQuad",    -- 二次関数
+    [13] = "outCubic",   -- 三次関数
+    [14] = "outQuart",   -- 四次関数
+    [15] = "outQuint",   -- 五次関数
+    [16] = "outCirc",    -- 円弧
+    [17] = "outExpo",    -- 指数関数
+    [18] = "outBack",    -- 戻り動作
+    [19] = "outElastic", -- 弾性
+    [20] = "outBounce",  -- 跳ね返り
+
+    -- InOut系列 (21-30): 開始・終了の両方に加減速を適用
+    [21] = "inOutSine",    -- 正弦波
+    [22] = "inOutQuad",    -- 二次関数
+    [23] = "inOutCubic",   -- 三次関数
+    [24] = "inOutQuart",   -- 四次関数
+    [25] = "inOutQuint",   -- 五次関数
+    [26] = "inOutCirc",    -- 円弧
+    [27] = "inOutExpo",    -- 指数関数
+    [28] = "inOutBack",    -- 戻り動作
+    [29] = "inOutElastic", -- 弾性
+    [30] = "inOutBounce"   -- 跳ね返り
+}
+
+-------------------------- イージング選択終了
+
+-------------------------- 登場順開始
+
+local order
+
+if entry_order < 1 then
+    -- 0: 前から (0, 1, 2, 3...)
+    order = obj.index
+elseif entry_order < 2 then
+    -- 1: 後ろから (...3, 2, 1, 0)
+    order = obj.num - 1 - obj.index
+elseif entry_order < 3 then
+    -- 2: 真ん中から (中央が 0 になり、両端へ向かって増える)
+    local center = (obj.num - 1) / 2
+    order = math.abs(center - obj.index)
+elseif entry_order < 4 then
+    -- 3: ランダム順 (重複なしシャッフル)
+    local idx = {}
+    for i = 0, obj.num - 1 do idx[i + 1] = i end
+    local seed = obj.id
+    for i = 1, obj.num do
+        local dest = obj.rand(0, obj.num - 1, seed, i)
+        local target = dest + 1
+        idx[i], idx[target] = idx[target], idx[i]
+    end
+    order = idx[obj.index + 1]
+else
+    -- 4: 外側から (両端が 0 になり、中央へ向かって増える)
+    local center = (obj.num - 1) / 2
+    order = center - math.abs(center - obj.index)
+end
+
+-------------------------- 登場順終了
+
+local ease_t = 0
+local out_ease_t = 0
+
+--------------------------- 登場処理
+if entry_in ~= 0 then
+    local delay = entry_delay or 0.3
+    local delay_time = (order or 0) * delay
+    local progress = ((entry_time + in_time) - (obj.time - delay_time)) / (entry_time + in_time)
+    if progress < 0 then progress = 0 end
+    if progress > 1 then progress = 1 end
+    local mode = mode_map[entry_easing] or "linear"
+    ease_t = Easing[mode](progress)
+end
+--------------------------- 登場処理終了
+
+--------------------------- 退場処理
+if entry_out ~= 0 then
+    local out_delay = entry_delay or 0.3
+    local my_out_delay_time = (order or 0) * out_delay
+    local out_start_trigger = obj.totaltime - entry_time - out_time - my_out_delay_time
+    -- 提供されたコードでは `/ entry_time + out_time` となっていましたが、計算上かっこが必要と思われるため追加しています
+    local out_progress = (obj.time - out_start_trigger) / (entry_time + out_time)
+
+    if out_progress < 0 then out_progress = 0 end
+    if out_progress > 1 then out_progress = 1 end
+
+    local mode = mode_map[entry_easing] or "linear"
+    out_ease_t = Easing[mode](out_progress)
+end
+--------------------------- 退場処理終了
+
+------------------------------ フェード
+
+-- アニメーションにかけるフェードの秒数を決定する用の変数
+local in_fade_speed = 0
+local out_fade_speed = 0
+
+if entry_in_fade ~= 0 then
+    -- INフェード用の変数に代入
+    in_fade_speed = entry_time
+end
+
+if entry_out_fade ~= 0 then
+    -- OUTフェード用の変数に代入
+    out_fade_speed = entry_time
+end
+
+obj.effect("フェード","イン",in_fade_speed,"アウト",out_fade_speed)
+
+--------------------------- フェード終了
+
+-- 登場と退場のイージング進行度を合算（0なら解除状態、1なら最大変形状態）
+local total_ease = ease_t + out_ease_t
+
+-- 100がデフォルトのもの
+local current_top_bottom_pull = 100 + (top_bottom_pull - 100) * total_ease
+local current_top_lift = 100 + (top_lift - 100) * total_ease
+local current_bottom_pull = 100 + (bottom_pull - 100) * total_ease
+local current_left_right_push = 100 + (left_right_push - 100) * total_ease
+local current_right_push = 100 + (right_push - 100) * total_ease
+local current_left_push = 100 + (left_push - 100) * total_ease
+
+-- 0がデフォルトのもの
+local current_left_top_left = left_top_left * total_ease
+local current_left_bottom_left = left_bottom_left * total_ease
+local current_top_right_up = top_right_up * total_ease
+local current_top_left_up = top_left_up * total_ease
+local current_bottom_right_down = bottom_right_down * total_ease
+local current_bottom_left_down = bottom_left_down * total_ease
+local current_right_top_right = right_top_right * total_ease
+local current_right_bottom_right = right_bottom_right * total_ease
+
+-- drawpolyで使用する用の変数内での計算で使用する用の変数
+local w = obj.w
+local h = obj.h
+
+-- drawpolyで使用する用の変数
+-- 左上
+local x0 = (current_left_right_push + current_left_push + current_left_top_left)/100*w/4
+local y0 = (current_top_bottom_pull + current_top_lift + current_top_left_up)/100*h/4
+-- 右上
+local x1 = (current_left_right_push + current_right_push + current_right_top_right)/100*w/4
+local y1 = (current_top_bottom_pull + current_top_lift + current_top_right_up)/100*h/4
+-- 右下
+local x2 = (current_left_right_push + current_right_push + current_right_bottom_right)/100*w/4
+local y2 = (current_top_bottom_pull + current_bottom_pull + current_bottom_right_down)/100*h/4
+-- 左下
+local x3 = (current_left_right_push + current_left_push + current_left_bottom_left)/100*w/4
+local y3 = (current_top_bottom_pull + current_bottom_pull + current_bottom_left_down)/100*h/4
+
+-- drawpolyのzの数値はすべて0なため、わかりやすいように変数を作成
+local z = 0
+
+-- drawpolyで数値の符号を反転させるための変数
+local m = -1
+
+obj.drawpoly(
+-- 左上
+x0*m,
+y0*m,
+z,
+-- 右上
+x1,
+y1*m,
+z,
+-- 右下
+x2,
+y2,
+z,
+-- 左下
+x3*m,
+y3,
+z
+)
